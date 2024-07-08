@@ -46,7 +46,10 @@ void main() throws Exception {
 
 						if (user_short_url.isBlank()) {
 							status = 200;
-							response = readFile("index.html");
+							response = String.format(
+								readFile("index.html"),
+								""
+							);
 						} else {
 							status = 301;
 							response = "redirecting";
@@ -119,15 +122,18 @@ void main() throws Exception {
 					}
 					short_to_url.put(short_url, url);
 
-					var page = readFile("url.html");
-
 					// TODO: a proper way to do a template string
 					// not this thing
+					var html_url = String.format(
+						readFile("url.html"),
+						"/"+short_url,
+						host_name+"/"+short_url,
+						short_to_url.get(short_url)
+					);
+
 					var response = String.format(
-							page,
-							"/"+short_url,
-							host_name+"/"+short_url,
-							short_to_url.get(short_url)
+						readFile("index.html"),
+						html_url
 					);
 
 					t.sendResponseHeaders(200, response.length());
