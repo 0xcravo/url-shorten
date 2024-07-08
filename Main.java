@@ -1,7 +1,6 @@
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.io.IOException;
@@ -14,9 +13,38 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-static String readFile(String path) throws IOException {
+String readFile(String path) throws IOException {
 	byte[] encoded = Files.readAllBytes(Paths.get(path));
 	return new String(encoded, StandardCharsets.UTF_8);
+}
+
+class Base62 {
+	static String charset =
+		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	;
+
+	static String encode(int n) {
+		if (n < charset.length())
+			return String.format("%c", charset.charAt(n));
+
+		var result = new StringBuilder();
+
+		for (; n > 0; n /= charset.length()) {
+			var i = (n - 1) % charset.length();
+			result.insert(0, charset.charAt(i));
+		}
+
+		return result.toString();
+	}
+
+	static int decode(String base62) {
+		int result = 0;
+
+		for (int i = 0; i < base62.length(); i++)
+			result *= charset.indexOf(base62.charAt(i));
+
+		return result;
+	}
 }
 
 void main() throws Exception {
@@ -65,6 +93,7 @@ void main() throws Exception {
 						return;
 					}
 
+
 					if (!method.equals("POST"))
 						return;
 
@@ -76,13 +105,15 @@ void main() throws Exception {
 						.split("=", 2)
 					;
 
-					if (payload.length <= 0 || payload[1].length() <= 0) {
+					if (payload.length <= 0) {
 						var err_msg =
 							"invalid input:"+
 							"empty input, please insert some url"
 						;
+
 						t.sendResponseHeaders(404, err_msg.length());
 						os.write(err_msg.getBytes());
+
 						return;
 					}
 
@@ -99,27 +130,15 @@ void main() throws Exception {
 					;
 
 					String short_url;
-					if (!url_to_number.containsKey(url)) {
+					if (url_to_number.containsKey(url))
+						short_url = Base62.encode(url_to_number.get(url));
+					else {
 						int n = count.get();
-						short_url = Base64
-							.getEncoder()
-							.encodeToString(
-								String.format("%d", n).getBytes()
-							)
-						;
+						short_url = Base62.encode(n);
 						url_to_number.put(url, n);
 						count.set(n + 1);
-					} else {
-						short_url = Base64
-							.getEncoder()
-							.encodeToString(
-								String.format(
-									"%d",
-									url_to_number.get(url)
-								).getBytes()
-							)
-						;
 					}
+
 					short_to_url.put(short_url, url);
 
 					// TODO: a proper way to do a template string
